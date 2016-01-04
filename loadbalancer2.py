@@ -9,9 +9,9 @@ HTTP_PORT = 80
 previous_server = 3
 lock = threading.Lock()
 SERV_HOST = '10.0.0.1'
-servers = {'serv1': ('192.168.0.101', None, 0, ('V','P')),  # #video server
- 'serv2': ('192.168.0.102', None, 0, ('V','P')),  # #video server
- 'serv3': ('192.168.0.103', None, 0, ('M'))}   # #music server
+servers = {'serv1': ['192.168.0.101', None, 0, ('V','P')],  # #video server
+ 'serv2': ['192.168.0.102', None, 0, ('V','P')],  # #video server
+ 'serv3': ['192.168.0.103', None, 0, ('M')]}   # #music server
 
 def LBPrint(string):
     print '%s: %s-----' % (time.strftime('%H:%M:%S', time.localtime(time.time())), string)
@@ -62,22 +62,22 @@ def getNextServer(req_type, req_time):
     return choosedServerName, new_queue_length
 def calculateAdditionValue(req_type, req_time, serverType):
     if req_type in serverType:
-        return req_time
+        return int(req_time)
     elif req_type == 'V':
-        return req_time*3
+        return int(req_time)*3
     else:
-        return req_time*2
+        return int(req_time)*2
 def chooseServer(req_type, req_time):
     global servers
-    longest_server = 'serv1'
+    shortest_server = 'serv1'
     points = calculateAdditionValue(req_type, req_time, servers['serv1'][3])
-    longest_queue = servers['serv1'][2] + points
-    for name, (addr, sock, ServerQueueLength, type) in servers.iteritems():
+    shortest_queue = servers['serv1'][2] + points
+    for name, [addr, sock, ServerQueueLength, servtype] in servers.iteritems():
         points = calculateAdditionValue(req_type, req_time, servers[name][3])
-        if (ServerQueueLength + points) > longest_queue:
-            longest_server = name
-            longest_queue = ServerQueueLength + points
-    return longest_server,longest_queue
+        if (ServerQueueLength + points) < shortest_queue:
+            shortest_server = name
+            shortest_queue = ServerQueueLength + points
+    return shortest_server,shortest_queue
 
 def parseRequest(req):
     return (req[0], req[1])
@@ -106,7 +106,7 @@ class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
 if __name__ == '__main__':
     try:
         for name, (addr, sock, ServerQueueLength, serverType) in servers.iteritems():
-            servers[name] = (addr, createSocket(addr, HTTP_PORT), ServerQueueLength, serverType)
+            servers[name] = [addr, createSocket(addr, HTTP_PORT), ServerQueueLength, serverType]
 
         server = ThreadedTCPServer((SERV_HOST, HTTP_PORT), LoadBalancerRequestHandler)
         server.serve_forever()
